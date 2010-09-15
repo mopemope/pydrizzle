@@ -8,8 +8,8 @@
 
 typedef struct {
 	PyObject_HEAD
-    drizzle_st drizzle;
-	drizzle_con_st con;
+    drizzle_st* drizzle;
+	drizzle_con_st* con;
 }   ConnectionObject;
 
 extern PyTypeObject ConnectionObjectType;

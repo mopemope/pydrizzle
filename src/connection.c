@@ -1,9 +1,31 @@
 #include "pydrizzle.h"
 
-static int
+static PyTypeObject conn_type;
+
+static inline int
+ConnectionObject_init(ConnectionObject *self, PyObject *args, PyObject *kwargs);
+
+inline PyObject*
+pydrizzle_connect(PyObject *obj, PyObject *args, PyObject *kwargs)
+{
+	ConnectionObject *con;
+	con = (ConnectionObject *) PyType_GenericNew(&conn_type, NULL, NULL);
+	if (con){
+        if(ConnectionObject_init(con, args, kwargs) < 0){
+            //TODO error;
+            Py_RETURN_NONE;
+        }
+    }else{
+        //alloc error
+    }
+    return con;
+}
+
+static inline int
 ConnectionObject_init(ConnectionObject *self, PyObject *args, PyObject *kwargs)
 {
     drizzle_st *drizzle;
+    drizzle_con_st *con;
 
     //Not support
 	PyObject *ssl = NULL;
@@ -27,39 +49,38 @@ ConnectionObject_init(ConnectionObject *self, PyObject *args, PyObject *kwargs)
     }
 	
     Py_BEGIN_ALLOW_THREADS ;
-	if(!drizzle_create(&(self->drizzle))){
+	if(!drizzle_create(self->drizzle)){
         //TODO set error
         return -1;
     }
 
     //set NON_BLOKING
-    drizzle_add_options(&(self->drizzle), DRIZZLE_NON_BLOCKING);
+    drizzle_add_options(self->drizzle, DRIZZLE_NON_BLOCKING);
 
 	if (connect_timeout) {
-		drizzle_set_timeput(&(self->drizzle), connect_timeout);
+		drizzle_set_timeput(self->drizzle, connect_timeout);
 	}
     if(!unix_socket){
-	    if(!drizzle_con_add_tcp(&(self->drizzle), &(self->con), host, port, user, passwd, db, DRIZZLE_CON_MYSQL)) {
-            fprintf(stderr, "drizzle_con_add_tcp:%s\n", drizzle_error(&drizzle));
-            exit(1);
-        }
+	    con = drizzle_con_add_tcp(self->drizzle, &(self->con), host, port, user, passwd, db, DRIZZLE_CON_MYSQL);
     }else{
-	    if(!drizzle_con_add_uds(&(self->drizzle), &(self->con), unix_socket, user, passwd, db, DRIZZLE_CON_MYSQL)) {
-            fprintf(stderr, "drizzle_con_add_tcp:%s\n", drizzle_error(&drizzle));
-            exit(1);
-        }
-    
+	    con = drizzle_con_add_uds(self->drizzle, &(self->con), unix_socket, user, passwd, db, DRIZZLE_CON_MYSQL);
     }
     Py_END_ALLOW_THREADS ;
     
-    return 1;
-    
+    if(!con){
+        //TODO Error
+        return -1;
+    }
+    return 0;
 }
 
 static inline void
 ConnectionObject_dealloc(ConnectionObject *self)
 {
-    return;
+    
+    drizzle_con_free(self->con);
+    drizzle_free(self->drizzle);
+	Py_TYPE(self)->tp_free((PyObject *)self);
 }
 
 static PyMethodDef ConnectionObject_methods[] = {
