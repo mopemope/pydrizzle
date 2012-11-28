@@ -7,22 +7,44 @@ import os
 import sys
 import os.path
 import platform
+import fnmatch
+import sys
+import os.path
+import platform
+
+develop = False
+develop = True 
 
 def read(name):
     return open(os.path.join(os.path.dirname(__file__), name)).read()
 
-if "posix" not in os.name:
-    print "Are you really running a posix compliant OS ?"
-    print "Be posix compliant is mandatory"
-    sys.exit(1)
+def check_platform():
+    if "posix" not in os.name:
+        print("Are you really running a posix compliant OS ?")
+        print("Be posix compliant is mandatory")
+        sys.exit(1)
 
-if "Linux" != platform.system():
-    print "sorry support linux only."
-    sys.exit(1)
+def get_sources(path, ignore_files):
+    src = []
+    for root, dirs , files in os.walk(path):
+        for file in files:
+            src_path = os.path.join(root, file)
+            #ignore = reduce(lambda x, y: x or y, [fnmatch.fnmatch(src_path, i) for i in ignore_files])
+            ignore = [i for i in ignore_files if  fnmatch.fnmatch(src_path, i)]
+            if not ignore and src_path.endswith(".c"):
+                src.append(src_path)
+    return src
 
-library_dirs=['/usr/local/lib']
-include_dirs=[]
+define_macros = [] 
+install_requires = []
 
+sources = get_sources("src", [""])
+
+library_dirs=[]
+include_dirs=["/usr/include/libdrizzle-1.0", "/usr/include/libdrizzle-1.0/libdrizzle"]
+
+
+define_macros.append(("DEVELOP",None))
 
 setup(name='pydrizzle',
     version="0.1dev",
@@ -33,19 +55,19 @@ setup(name='pydrizzle',
     url='http://github.com/mopemope/pydrizzle',
     license='',
     platforms='',
-    #packages= ['pydrizzle'],
-    install_requires=[
-    ],
+    packages= ['pydrizzle'],
+    install_requires=install_requires,
     
     entry_points="""
 
     """,
     ext_modules = [
         Extension('_pydrizzle',
-            sources=['src/pydrizzle.c', 'src/connection.c'],
+                sources=sources,
                 include_dirs=include_dirs,
                 library_dirs=library_dirs,
                 libraries=["drizzle"],
+                define_macros=define_macros
                 #extra_compile_args=["-DDEBUG"],
             )],
 
